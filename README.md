@@ -4,6 +4,22 @@ A chatbot that **decides its own temperature for every message**, routes each tu
 
 Built with LangChain, LangGraph, LangSmith and LangExtract. New to these? Read [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md), a ground-up walkthrough of every concept and every file.
 
+## Product mode: chat with your documents (v2)
+
+Run the web product and the bot answers from files the owner gives it:
+
+```bash
+pip install -r requirements.txt
+uvicorn api:app --host 0.0.0.0 --port 8000
+# or: docker compose up --build
+```
+
+Open http://localhost:8000 for a modern chat UI with a document sidebar. Upload PDF, DOCX, TXT or MD files (up to 10 MB each); they are extracted, chunked and indexed into a knowledge base that persists on disk across restarts. Every answer that uses your documents carries its sources, viewable in the UI, and the model is instructed to cite them like [1] and to admit when the documents do not contain the answer instead of guessing.
+
+Retrieval is RAG with a pure-Python TF-IDF index (`chatbot/knowledge.py`): zero extra services, works fully offline in demo mode. Its honest limitation is that it matches words, not meanings; with a provider key, swap the vectoriser for API embeddings behind the same interface for semantic retrieval.
+
+The FastAPI backend (`api.py`) exposes health, document upload/list/delete, chat and extraction endpoints, so the UI can be replaced or embedded elsewhere.
+
 ## Why self-adjusting temperature
 
 Temperature controls how random the model's word choices are. Fixed at one value, a chatbot is either too rigid for creative work or too loose for facts and code. This one classifies each request and picks:
@@ -76,7 +92,7 @@ bot> I cannot help with that request: it looks like an attempt to
 
 ## Tests
 
-23 offline unit tests cover the temperature policy, both guardrails, the full graph (routing, blocking, redaction, memory, override) and extraction. No API key needed:
+43 offline tests cover the temperature policy, both guardrails, the full graph (routing, blocking, redaction, memory, override), extraction, ingestion (including real DOCX and PDF paths), the knowledge base (relevance, deletion, persistence, rejection cases), the RAG wiring (sources attached, irrelevant questions get none) and the HTTP API end to end (upload, chat, delete, validation, guardrail blocking, temperature override). No API key needed:
 
 ```bash
 python -m pytest tests -q
