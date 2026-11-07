@@ -54,10 +54,17 @@ class ChatState(TypedDict, total=False):
     decision_reasons: list[str]
     prev_repetitive: bool
     events: list[str]
+    context: str
+    sources: list[dict]
 
 
-def build_app(provider: str, temp_override: float | None = None):
-    """Compile the chatbot graph for one provider."""
+def build_app(provider: str, temp_override: float | None = None, kb=None):
+    """Compile the chatbot graph for one provider.
+
+    When a knowledge base is supplied, a retrieval node joins the
+    pipeline (router, retrieve, generate) and answers are grounded
+    in the owner's documents, with sources attached to the state.
+    """
 
     def input_guardrail(state: ChatState) -> ChatState:
         last = state["messages"][-1]
@@ -93,9 +100,45 @@ def build_app(provider: str, temp_override: float | None = None):
             "events": state.get("events", []) + [f"temperature: {decision.describe()}"],
         }
 
+    def retrieve(state: ChatState) -> ChatState:
+        if kb is None or not kb.chunks:
+            return {"context": "", "sources": [], "events": state.get("events", [])}
+        hits = kb.search(state.get("user_text", ""), k=4)
+        if not hits:
+            return {
+                "context": "",
+                "sources": [],
+                "events": state.get("events", []) + ["retrieval: no matching chunks"],
+            }
+        blocks = []
+        sources = []
+        for i, hit in enumerate(hits, start=1):
+            blocks.append(f"[{i}] (from {hit['source']})\n{hit['text']}")
+            sources.append(
+                {"ref": i, "source": hit["source"], "score": hit["score"],
+                 "text": hit["text"][:300]}
+            )
+        return {
+            "context": "\n\n".join(blocks),
+            "sources": sources,
+            "events": state.get("events", [])
+            + [f"retrieval: {len(hits)} chunks from {len({h['source'] for h in hits})} document(s)"],
+        }
+
     def generate(state: ChatState) -> ChatState:
         model = models.get_chat_model(provider, state.get("decision_temperature", 0.7))
         history: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
+        if state.get("context"):
+            history.append(
+                SystemMessage(
+                    content=(
+                        "Sources from the owner's documents are below. When they "
+                        "answer the question, use them and cite them like [1], [2]. "
+                        "If they do not contain the answer, say what is missing "
+                        "instead of guessing.\n\n" + state["context"]
+                    )
+                )
+            )
         for msg in state["messages"]:
             if isinstance(msg, HumanMessage):
                 # Send the redacted text, never the raw input.
@@ -120,6 +163,7 @@ def build_app(provider: str, temp_override: float | None = None):
     graph = StateGraph(ChatState)
     graph.add_node("input_guardrail", input_guardrail)
     graph.add_node("temperature_router", temperature_router)
+    graph.add_node("retrieve", retrieve)
     graph.add_node("generate", generate)
     graph.add_node("output_guardrail", output_guardrail)
 
@@ -129,7 +173,8 @@ def build_app(provider: str, temp_override: float | None = None):
         route_after_guardrail,
         {"output_guardrail": "output_guardrail", "temperature_router": "temperature_router"},
     )
-    graph.add_edge("temperature_router", "generate")
+    graph.add_edge("temperature_router", "retrieve")
+    graph.add_edge("retrieve", "generate")
     graph.add_edge("generate", "output_guardrail")
     graph.add_edge("output_guardrail", END)
 
