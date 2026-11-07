@@ -1,0 +1,16 @@
+services:
+  adaptivechat:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Set ONE provider key, or none for demo mode.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+    volumes:
+      - adaptivechat-data:/app/data
+
+volumes:
+  adaptivechat-data:

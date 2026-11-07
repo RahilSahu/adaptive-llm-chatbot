@@ -3,7 +3,14 @@ langgraph>=0.2
 langchain-openai>=0.2
 langchain-anthropic>=0.2
 langchain-google-genai>=2.0
+langchain-text-splitters>=0.3
 langsmith>=0.1
+# Product web layer:
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pypdf>=5.0
+python-docx>=1.1
 # Optional, for model-grade structured extraction (chatbot/extraction.py
 # falls back to a built-in offline extractor without it):
 # langextract
