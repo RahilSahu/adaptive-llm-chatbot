@@ -43,6 +43,12 @@ class ChatRequest(BaseModel):
     message: str
     thread_id: str = "web"
     temp_override: float | None = None
+    # Bring your own key: a visitor may pass their own provider key
+    # for this request. It is used to build the model for this turn
+    # only, never stored, never logged. `provider` may be omitted,
+    # in which case it is inferred from the key's shape.
+    api_key: str | None = None
+    provider: str | None = None
 
 
 class ExtractRequest(BaseModel):
@@ -91,10 +97,31 @@ def delete_document(doc_id: str) -> dict:
 def chat(request: ChatRequest) -> dict:
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="message must not be empty")
+    provider = PROVIDER
+    api_key = None
+    if request.api_key and request.api_key.strip():
+        api_key = request.api_key.strip()
+        chosen = (request.provider or "").strip().lower()
+        if chosen and chosen not in config.PROVIDER_KEYS:
+            raise HTTPException(status_code=400, detail="unknown provider for the supplied key")
+        provider = chosen or config.infer_provider(api_key)
+        if provider is None:
+            raise HTTPException(
+                status_code=400,
+                detail="could not tell which provider this key belongs to, pick the provider and try again",
+            )
     # The graph is compiled per request so a manual temperature
     # override applies cleanly; compilation is cheap at this scale.
-    app_graph = graph.build_app(PROVIDER, temp_override=request.temp_override, kb=KB)
-    state = graph.run_turn(app_graph, request.message, thread_id=request.thread_id)
+    app_graph = graph.build_app(provider, temp_override=request.temp_override, kb=KB, api_key=api_key)
+    try:
+        state = graph.run_turn(app_graph, request.message, thread_id=request.thread_id)
+    except Exception:
+        # Never surface the provider's raw error (it can echo request
+        # details); a clean message tells the user what to check.
+        raise HTTPException(
+            status_code=502,
+            detail="the model provider rejected the request, check the API key and try again",
+        )
     return {
         "reply": state["messages"][-1].content,
         "mode": state.get("decision_mode"),
@@ -102,6 +129,7 @@ def chat(request: ChatRequest) -> dict:
         "blocked": bool(state.get("blocked")),
         "sources": state.get("sources", []),
         "events": state.get("events", []),
+        "provider_used": provider,
     }
 
 

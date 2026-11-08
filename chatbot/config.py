@@ -28,6 +28,23 @@ def detect_provider() -> str:
     return "demo"
 
 
+def infer_provider(api_key: str) -> str | None:
+    """Guess the provider from a user-supplied key's shape.
+
+    Used by the bring-your-own-key flow, where a visitor pastes a key
+    into the web UI. Returns None when the shape is unrecognised, so
+    the caller can ask the user to pick the provider explicitly.
+    """
+    key = (api_key or "").strip()
+    if key.startswith("sk-ant-"):
+        return "anthropic"
+    if key.startswith("AIza"):
+        return "google"
+    if key.startswith("sk-"):
+        return "openai"
+    return None
+
+
 def model_name(provider: str) -> str | None:
     """Model override via CHATBOT_MODEL, else a sane per-provider default."""
     override = os.environ.get("CHATBOT_MODEL", "").strip()

@@ -58,12 +58,16 @@ class ChatState(TypedDict, total=False):
     sources: list[dict]
 
 
-def build_app(provider: str, temp_override: float | None = None, kb=None):
+def build_app(provider: str, temp_override: float | None = None, kb=None, api_key: str | None = None):
     """Compile the chatbot graph for one provider.
 
     When a knowledge base is supplied, a retrieval node joins the
     pipeline (router, retrieve, generate) and answers are grounded
     in the owner's documents, with sources attached to the state.
+
+    `api_key` is a visitor-supplied key (bring your own key): it is
+    held only in this compiled graph's closure for this request and
+    passed to the model factory at generation time.
     """
 
     def input_guardrail(state: ChatState) -> ChatState:
@@ -126,7 +130,7 @@ def build_app(provider: str, temp_override: float | None = None, kb=None):
         }
 
     def generate(state: ChatState) -> ChatState:
-        model = models.get_chat_model(provider, state.get("decision_temperature", 0.7))
+        model = models.get_chat_model(provider, state.get("decision_temperature", 0.7), api_key=api_key)
         history: list[BaseMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
         if state.get("context"):
             history.append(

@@ -11,9 +11,20 @@
     --good:#3fb97c; --warn:#e0a23e; --bad:#e05e5e; --radius:14px;
   }
   *{box-sizing:border-box}
+  html,body{overflow-x:hidden}
   body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
-    background:radial-gradient(1200px 600px at 80% -10%,#1c2340 0%,var(--bg) 55%);color:var(--text);height:100vh}
-  .app{display:flex;height:100vh}
+    background:radial-gradient(1200px 600px at 80% -10%,#1c2340 0%,var(--bg) 55%);color:var(--text);height:100vh;height:100dvh}
+  .app{display:flex;height:100vh;height:100dvh}
+  /* ---------- mobile top bar + drawer ---------- */
+  .topbar{display:none;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .topbar h1{font-size:16px;margin:0}
+  .topbar .logo{width:32px;height:32px;font-size:17px;border-radius:9px}
+  .tbtn{margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer}
+  .tbtn + .tbtn{margin-left:0}
+  .backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:25}
+  .uploadBtn{margin-top:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;
+    border-radius:11px;padding:11px 20px;font-size:14px;cursor:pointer}
   /* ---------- sidebar ---------- */
   aside{width:320px;min-width:280px;background:var(--panel);border-right:1px solid var(--line);
     display:flex;flex-direction:column;padding:20px;gap:16px;overflow-y:auto}
@@ -63,7 +74,25 @@
   #send:disabled{opacity:.5;cursor:default}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1d2436;border:1px solid var(--line);
     color:var(--text);padding:10px 16px;border-radius:10px;font-size:13px;display:none;z-index:9}
-  @media(max-width:820px){aside{display:none}.msg{max-width:92%}#messages,#composer{padding-left:4%;padding-right:4%}}
+  .field{width:100%;background:#10141f;border:1px solid var(--line);border-radius:10px;color:var(--text);
+    padding:10px 12px;font-size:14px;outline:none;margin-top:8px}
+  .field:focus{border-color:var(--accent)}
+  .btn{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;
+    border-radius:10px;padding:9px 16px;font-size:13px;cursor:pointer}
+  .btn.ghost{background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+  .hint{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.5}
+  #composer{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  @media(max-width:820px){
+    .topbar{display:flex}
+    aside{position:fixed;top:0;left:0;height:100vh;height:100dvh;width:min(320px,86vw);z-index:30;
+      transform:translateX(-105%);transition:transform .25s ease;box-shadow:0 0 40px rgba(0,0,0,.5)}
+    aside.open{transform:none}
+    .backdrop.show{display:block}
+    .msg{max-width:92%}
+    #messages,#composer{padding-left:4%;padding-right:4%}
+    #messages{padding-top:16px}
+    .empty h2{font-size:22px}
+  }
 </style>
 </head>
 <body>
@@ -95,6 +124,26 @@
     </div>
 
     <div class="card">
+      <h2>Your API key</h2>
+      <div class="stat"><span>Answering model</span><b id="keyState">server default</b></div>
+      <select id="keyProvider" class="field">
+        <option value="auto">Auto-detect from key</option>
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+        <option value="google">Google</option>
+      </select>
+      <input type="password" id="keyInput" class="field" placeholder="Paste your API key" autocomplete="off">
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="keySave">Save key</button>
+        <button class="btn ghost" id="keyClear">Clear</button>
+      </div>
+      <p class="hint">Stored only in this browser, sent with your chat
+      requests, never saved on the server. Leave empty to use the server
+      default, which is the demo model until the owner sets a key.
+      Document retrieval keeps using the server engine either way.</p>
+    </div>
+
+    <div class="card">
       <h2>Temperature</h2>
       <div class="row"><input type="checkbox" id="tempAuto" checked> <label for="tempAuto">Self-adjusting (recommended)</label></div>
       <input type="range" id="tempRange" min="0" max="1.2" step="0.05" value="0.7" disabled>
@@ -116,13 +165,20 @@
   </aside>
 
   <main>
+    <div class="topbar">
+      <div class="logo">💬</div>
+      <h1>AdaptiveChat</h1>
+      <button class="tbtn" id="mUpload">Upload</button>
+      <button class="tbtn" id="mPanel">Panel</button>
+    </div>
     <div id="messages">
       <div class="empty" id="emptyState">
         <h2>Your documents, answered.</h2>
-        <p>Upload a PDF, Word document or text file on the left, then ask
+        <p>Upload a PDF, Word document or text file, then ask
         questions. The bot answers from your files, cites its sources, sets
         its own temperature for every question, and keeps private data out
         of the model by default.</p>
+        <button class="uploadBtn" id="emptyUpload">Upload a document</button>
       </div>
     </div>
     <div id="composer">
@@ -131,6 +187,7 @@
     </div>
   </main>
 </div>
+<div class="backdrop" id="backdrop"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -195,6 +252,39 @@ fi.onchange = () => { if (fi.files[0]) uploadFile(fi.files[0]); fi.value = ""; }
 ["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("drag"); }));
 dz.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) uploadFile(f); });
 
+/* ---------- mobile drawer + upload shortcuts ---------- */
+const asideEl = document.querySelector("aside"), backdropEl = $("#backdrop");
+function closeDrawer() { asideEl.classList.remove("open"); backdropEl.classList.remove("show"); }
+$("#mPanel").onclick = () => { asideEl.classList.add("open"); backdropEl.classList.add("show"); };
+backdropEl.onclick = closeDrawer;
+if (location.hash === "#panel") { asideEl.classList.add("open"); backdropEl.classList.add("show"); }
+$("#mUpload").onclick = () => fi.click();
+document.getElementById("emptyUpload")?.addEventListener("click", () => fi.click());
+
+/* ---------- bring your own API key ---------- */
+const keyInput = $("#keyInput"), keyProvider = $("#keyProvider"), keyState = $("#keyState");
+function refreshKeyState() {
+  const k = localStorage.getItem("ac_key"), p = localStorage.getItem("ac_provider") || "auto";
+  keyState.textContent = k ? (p === "auto" ? "your key" : "your " + p + " key") : "server default";
+  keyInput.placeholder = k ? "Key saved in this browser" : "Paste your API key";
+}
+keyProvider.value = localStorage.getItem("ac_provider") || "auto";
+$("#keySave").onclick = () => {
+  const k = keyInput.value.trim();
+  if (!k) { toast("Paste a key first"); return; }
+  localStorage.setItem("ac_key", k); localStorage.setItem("ac_provider", keyProvider.value);
+  keyInput.value = ""; refreshKeyState(); toast("Key saved in this browser");
+};
+$("#keyClear").onclick = () => {
+  localStorage.removeItem("ac_key"); localStorage.removeItem("ac_provider");
+  keyInput.value = ""; refreshKeyState(); toast("Key removed from this browser");
+};
+keyProvider.onchange = () => {
+  if (localStorage.getItem("ac_key")) localStorage.setItem("ac_provider", keyProvider.value);
+  refreshKeyState();
+};
+refreshKeyState();
+
 const tempAuto = $("#tempAuto"), tempRange = $("#tempRange"), tempVal = $("#tempVal");
 tempAuto.onchange = () => { tempRange.disabled = tempAuto.checked; };
 tempRange.oninput = () => { tempVal.textContent = Number(tempRange.value).toFixed(2); };
@@ -250,6 +340,12 @@ async function send() {
   try {
     const body = { message: text, thread_id: threadId,
       temp_override: tempAuto.checked ? null : Number(tempRange.value) };
+    const savedKey = localStorage.getItem("ac_key");
+    if (savedKey) {
+      body.api_key = savedKey;
+      const p = localStorage.getItem("ac_provider");
+      if (p && p !== "auto") body.provider = p;
+    }
     const res = await fetch("/api/chat", { method: "POST",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || res.statusText); }

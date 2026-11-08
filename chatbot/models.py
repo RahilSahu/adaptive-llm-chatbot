@@ -20,8 +20,16 @@ DEMO_RESPONSES = [
 ]
 
 
-def get_chat_model(provider: str, temperature: float) -> BaseChatModel:
-    """Build the chat model for `provider` at `temperature`."""
+def get_chat_model(
+    provider: str, temperature: float, api_key: str | None = None
+) -> BaseChatModel:
+    """Build the chat model for `provider` at `temperature`.
+
+    `api_key` is the bring-your-own-key path: a visitor's own key,
+    passed straight to the provider client for this request only.
+    It is never read from or written to the process environment and
+    never stored. Without it, the client uses the server's env key.
+    """
     if provider == "demo":
         from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
@@ -34,13 +42,16 @@ def get_chat_model(provider: str, temperature: float) -> BaseChatModel:
     if provider == "openai":
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(model=name, temperature=temperature)
+        kwargs = {"api_key": api_key} if api_key else {}
+        return ChatOpenAI(model=name, temperature=temperature, **kwargs)
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
 
-        return ChatAnthropic(model=name, temperature=temperature)
+        kwargs = {"api_key": api_key} if api_key else {}
+        return ChatAnthropic(model=name, temperature=temperature, **kwargs)
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        return ChatGoogleGenerativeAI(model=name, temperature=temperature)
+        kwargs = {"google_api_key": api_key} if api_key else {}
+        return ChatGoogleGenerativeAI(model=name, temperature=temperature, **kwargs)
     raise ValueError(f"unknown provider: {provider}")
