@@ -90,6 +90,7 @@
       <div class="stat"><span>Model</span><b id="stModel">...</b></div>
       <div class="stat"><span>Documents</span><b id="stDocs">0</b></div>
       <div class="stat"><span>Chunks indexed</span><b id="stChunks">0</b></div>
+      <div class="stat"><span>Retrieval</span><b id="stEngine">...</b></div>
       <div class="stat"><span>LangSmith tracing</span><b id="stTrace">off</b></div>
     </div>
 
@@ -149,6 +150,7 @@ async function refreshHealth() {
     $("#stModel").textContent = h.model;
     $("#stDocs").textContent = h.documents;
     $("#stChunks").textContent = h.chunks;
+    $("#stEngine").textContent = h.retrieval_engine === "embeddings" ? "embeddings (semantic)" : "TF-IDF (keyword)";
     $("#stTrace").textContent = h.langsmith ? "on · " + h.langsmith_project : "off";
   } catch (e) { /* server not up yet */ }
 }

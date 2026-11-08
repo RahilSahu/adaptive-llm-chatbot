@@ -28,13 +28,13 @@ from fastapi import FastAPI, File, HTTPException, UploadFile  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from chatbot import config, extraction, graph, ingest  # noqa: E402
+from chatbot import config, embeddings, extraction, graph, ingest  # noqa: E402
 from chatbot.knowledge import KnowledgeBase  # noqa: E402
 
 DATA_DIR = Path(os.environ.get("CHATBOT_DATA_DIR", "data"))
 PROVIDER = config.detect_provider()
 TRACING = config.setup_tracing()
-KB = KnowledgeBase.load(DATA_DIR)
+KB = KnowledgeBase.load(DATA_DIR, embeddings=embeddings.get_embeddings(PROVIDER))
 
 app = FastAPI(title="AdaptiveChat", version="2.0.0")
 
@@ -57,6 +57,7 @@ def health() -> dict:
         "model": config.model_name(PROVIDER),
         "documents": len(KB.documents),
         "chunks": len(KB.chunks),
+        "retrieval_engine": KB.engine,
         "langsmith": TRACING.enabled,
         "langsmith_project": TRACING.project,
     }
