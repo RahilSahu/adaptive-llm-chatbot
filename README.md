@@ -1,5 +1,7 @@
 # Adaptive LLM Chatbot
 
+[![tests](https://github.com/RahilSahu/adaptive-llm-chatbot/actions/workflows/tests.yml/badge.svg)](https://github.com/RahilSahu/adaptive-llm-chatbot/actions/workflows/tests.yml)
+
 A chatbot that **decides its own temperature for every message**, routes each turn through **guardrails** before and after the model, and is orchestrated as a **LangGraph** state machine instead of a linear script. Bring your own API key (OpenAI, Anthropic or Google), or run it keyless in demo mode and watch the pipeline work.
 
 Built with LangChain, LangGraph, LangSmith and LangExtract. New to these? Read [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md), a ground-up walkthrough of every concept and every file.
