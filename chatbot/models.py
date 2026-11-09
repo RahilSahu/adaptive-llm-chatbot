@@ -7,6 +7,8 @@ demo and the tests work with only the core dependencies installed.
 
 from __future__ import annotations
 
+import os
+
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from . import config
@@ -44,6 +46,18 @@ def get_chat_model(
 
         kwargs = {"api_key": api_key} if api_key else {}
         return ChatOpenAI(model=name, temperature=temperature, **kwargs)
+    if provider == "openrouter":
+        # OpenRouter speaks the OpenAI API shape at its own base URL.
+        from langchain_openai import ChatOpenAI
+
+        key = api_key or os.environ.get("OPENROUTER_API_KEY")
+        kwargs = {"api_key": key} if key else {}
+        return ChatOpenAI(
+            model=name,
+            temperature=temperature,
+            base_url="https://openrouter.ai/api/v1",
+            **kwargs,
+        )
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
 

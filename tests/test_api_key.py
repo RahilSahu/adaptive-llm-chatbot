@@ -10,6 +10,8 @@ def test_infer_provider_from_key_shape():
     assert config.infer_provider("sk-ant-api03-abc") == "anthropic"
     assert config.infer_provider("AIzaSyExampleKey") == "google"
     assert config.infer_provider("sk-proj-abc123") == "openai"
+    assert config.infer_provider("sk-or-v1-abc123") == "openrouter"
+    assert config.model_name("openrouter") == "openai/gpt-4o-mini"
     assert config.infer_provider("not-a-real-key") is None
     assert config.infer_provider("") is None
 

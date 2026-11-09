@@ -115,9 +115,17 @@ def chat(request: ChatRequest) -> dict:
     app_graph = graph.build_app(provider, temp_override=request.temp_override, kb=KB, api_key=api_key)
     try:
         state = graph.run_turn(app_graph, request.message, thread_id=request.thread_id)
-    except Exception:
+    except Exception as exc:
         # Never surface the provider's raw error (it can echo request
-        # details); a clean message tells the user what to check.
+        # details); a clean message tells the user what to check. One
+        # case gets its own message because "check the key" misleads:
+        # a valid key on an account with no credits.
+        text = str(exc).lower()
+        if "credit" in text or "insufficient_quota" in text or "billing" in text:
+            raise HTTPException(
+                status_code=502,
+                detail="this key is valid but its provider account is out of credits; add billing with the provider or use a different key",
+            )
         raise HTTPException(
             status_code=502,
             detail="the model provider rejected the request, check the API key and try again",

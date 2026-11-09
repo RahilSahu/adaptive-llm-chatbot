@@ -26,6 +26,18 @@ def get_embeddings(provider: str) -> Embeddings | None:
         from langchain_openai import OpenAIEmbeddings
 
         return OpenAIEmbeddings(model=override or "text-embedding-3-small")
+    if provider == "openrouter":
+        from langchain_openai import OpenAIEmbeddings
+
+        kwargs = {}
+        env_key = os.environ.get("OPENROUTER_API_KEY")
+        if env_key:
+            kwargs["api_key"] = env_key
+        return OpenAIEmbeddings(
+            model=override or "text-embedding-3-small",
+            base_url="https://openrouter.ai/api/v1",
+            **kwargs,
+        )
     if provider == "google":
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
 

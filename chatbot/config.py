@@ -13,6 +13,7 @@ PROVIDER_KEYS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "google": "GOOGLE_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
 }
 
 
@@ -40,6 +41,11 @@ def infer_provider(api_key: str) -> str | None:
         return "anthropic"
     if key.startswith("AIza"):
         return "google"
+    if key.startswith("sk-or-"):
+        # OpenRouter keys also start with sk-, so this check must come
+        # before the generic OpenAI one or the key is sent to the wrong
+        # provider and rejected.
+        return "openrouter"
     if key.startswith("sk-"):
         return "openai"
     return None
@@ -54,6 +60,7 @@ def model_name(provider: str) -> str | None:
         "openai": "gpt-4o-mini",
         "anthropic": "claude-3-5-haiku-latest",
         "google": "gemini-2.0-flash",
+        "openrouter": "openai/gpt-4o-mini",
         "demo": "demo",
     }.get(provider)
 
