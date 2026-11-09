@@ -56,6 +56,7 @@ class ChatState(TypedDict, total=False):
     events: list[str]
     context: str
     sources: list[dict]
+    doc_note: str
 
 
 def build_app(provider: str, temp_override: float | None = None, kb=None, api_key: str | None = None):
@@ -106,12 +107,35 @@ def build_app(provider: str, temp_override: float | None = None, kb=None, api_ke
 
     def retrieve(state: ChatState) -> ChatState:
         if kb is None or not kb.chunks:
-            return {"context": "", "sources": [], "events": state.get("events", [])}
-        hits = kb.search(state.get("user_text", ""), k=4)
-        if not hits:
+            # No documents loaded. Give the model the true state so it
+            # says exactly that, instead of inventing an upload failure
+            # or claiming it cannot access documents at all.
             return {
                 "context": "",
                 "sources": [],
+                "doc_note": (
+                    "Workspace state: NO documents are currently loaded. "
+                    "If the user refers to a document, a file, or an upload, "
+                    "tell them plainly that no document is loaded in this "
+                    "workspace right now (uploads here are temporary and may "
+                    "have been cleared) and ask them to upload it again. "
+                    "Do not invent any other explanation."
+                ),
+                "events": state.get("events", []),
+            }
+        hits = kb.search(state.get("user_text", ""), k=4)
+        if not hits:
+            names = ", ".join(d["name"] for d in kb.list_documents())
+            return {
+                "context": "",
+                "sources": [],
+                "doc_note": (
+                    f"Workspace state: these documents ARE loaded: {names}. "
+                    "No passage matched this question. If the user asks about "
+                    "the documents, say they are loaded but this detail is "
+                    "not in the retrieved passages. Never claim you cannot "
+                    "access the documents or that an upload failed."
+                ),
                 "events": state.get("events", []) + ["retrieval: no matching chunks"],
             }
         blocks = []
@@ -143,6 +167,8 @@ def build_app(provider: str, temp_override: float | None = None, kb=None, api_ke
                     )
                 )
             )
+        if state.get("doc_note"):
+            history.append(SystemMessage(content=state["doc_note"]))
         for msg in state["messages"]:
             if isinstance(msg, HumanMessage):
                 # Send the redacted text, never the raw input.

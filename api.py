@@ -36,6 +36,36 @@ PROVIDER = config.detect_provider()
 TRACING = config.setup_tracing()
 KB = KnowledgeBase.load(DATA_DIR, embeddings=embeddings.get_embeddings(PROVIDER))
 
+_KB_MTIME = 0.0
+try:
+    _KB_MTIME = (DATA_DIR / "knowledge.json").stat().st_mtime
+except OSError:
+    pass
+
+
+def _refresh_kb() -> None:
+    """Reload the knowledge base when the saved data is newer than
+    what this process loaded at startup. On serverless hosting an
+    upload may be saved by a different invocation than the one that
+    answers the next chat; without this check the answering process
+    can sit on a stale, empty knowledge base."""
+    global KB, _KB_MTIME
+    try:
+        mtime = (DATA_DIR / "knowledge.json").stat().st_mtime
+    except OSError:
+        return
+    if mtime > _KB_MTIME:
+        KB = KnowledgeBase.load(DATA_DIR, embeddings=embeddings.get_embeddings(PROVIDER))
+        _KB_MTIME = mtime
+
+
+def _note_saved() -> None:
+    global _KB_MTIME
+    try:
+        _KB_MTIME = (DATA_DIR / "knowledge.json").stat().st_mtime
+    except OSError:
+        pass
+
 app = FastAPI(title="AdaptiveChat", version="2.0.0")
 
 
@@ -71,6 +101,7 @@ def health() -> dict:
 
 @app.get("/api/documents")
 def list_documents() -> dict:
+    _refresh_kb()
     return {"documents": KB.list_documents()}
 
 
@@ -82,6 +113,7 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
     except ingest.IngestError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     KB.save(DATA_DIR)
+    _note_saved()
     return {"document": entry, "documents": KB.list_documents()}
 
 
@@ -90,11 +122,13 @@ def delete_document(doc_id: str) -> dict:
     if not KB.delete_document(doc_id):
         raise HTTPException(status_code=404, detail="document not found")
     KB.save(DATA_DIR)
+    _note_saved()
     return {"documents": KB.list_documents()}
 
 
 @app.post("/api/chat")
 def chat(request: ChatRequest) -> dict:
+    _refresh_kb()
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="message must not be empty")
     provider = PROVIDER
