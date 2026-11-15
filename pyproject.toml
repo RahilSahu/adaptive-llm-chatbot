@@ -1,2 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adaptivechat"
+version = "2.2.2"
+description = "Adaptive LLM chatbot with document chat (RAG), guardrails and self-adjusting temperature."
+requires-python = ">=3.11"
+# Mirrors requirements.txt. Both are kept: requirements.txt serves
+# local and Docker installs, while Vercel's current Python builder
+# resolves dependencies from pyproject.toml when one is present
+# (a pyproject with no [project] dependencies made the v2.2.2
+# deploy install nothing and crash with ModuleNotFoundError).
+dependencies = [
+    "langchain>=0.3",
+    "langgraph>=0.2",
+    "langchain-openai>=0.2",
+    "langchain-anthropic>=0.2",
+    "langchain-google-genai>=2.0",
+    "langchain-text-splitters>=0.3",
+    "langsmith>=0.1",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    "pypdf>=5.0",
+    "python-docx>=1.1",
+]
+
+[tool.setuptools]
+py-modules = ["api", "chat"]
+packages = ["chatbot"]
+
 [tool.vercel]
 entrypoint = "api:app"
