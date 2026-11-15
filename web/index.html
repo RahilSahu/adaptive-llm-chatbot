@@ -93,6 +93,23 @@
     #messages{padding-top:16px}
     .empty h2{font-size:22px}
   }
+  /* Foldable and very narrow phones: the top bar (logo, title and two
+     buttons) and the composer (input plus Send) are wider than a
+     280px screen at their default sizes, so the Panel and Send
+     buttons were clipped off-screen. Shrink them and let the title
+     and the input actually flex. */
+  @media(max-width:480px){
+    .topbar{gap:8px;padding:10px}
+    .topbar h1{font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .tbtn{padding:7px 9px;font-size:12px;flex:none}
+    #input{min-width:0}
+    #send{padding:0 14px;flex:none}
+  }
+  /* At foldable widths the brand text does not fit next to both
+     buttons; the logo alone carries the brand there. */
+  @media(max-width:360px){
+    .topbar h1{display:none}
+  }
 </style>
 </head>
 <body>
